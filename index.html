@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💎</text></svg>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React Mancala Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      // All application code is bundled here to work with Google Apps Script.
+
+      // From types.ts
+      const Player = {
+        One: 0,
+        Two: 1,
+      };
+
+      // From constants.ts
+      const INITIAL_SEEDS_PER_PIT = 4;
+      const PITS_PER_PLAYER = 6;
+      const TOTAL_PITS = PITS_PER_PLAYER * 2;
+      const PLAYER_ONE_STORE_INDEX = PITS_PER_PLAYER;
+      const PLAYER_TWO_STORE_INDEX = TOTAL_PITS + 1;
+
+      const PLAYER_PIT_INDICES = {
+        [Player.One]: Array.from({ length: PITS_PER_PLAYER }, (_, i) => i),
+        [Player.Two]: Array.from({ length: PITS_PER_PLAYER }, (_, i) => i + PITS_PER_PLAYER + 1),
+      };
+
+      const PLAYER_STORE_INDICES = {
+        [Player.One]: PLAYER_ONE_STORE_INDEX,
+        [Player.Two]: PLAYER_TWO_STORE_INDEX,
+      };
+      
+      // From components/Seed.tsx
+      const SEED_COLORS = [
+        'bg-sky-400',
+        'bg-emerald-400',
+        'bg-amber-400',
+        'bg-rose-400',
+        'bg-indigo-400',
+        'bg-pink-400',
+      ];
+
+      const Seed = ({ index }) => {
+        const color = SEED_COLORS[index % SEED_COLORS.length];
+        const sizeClass = 'w-3 h-3 md:w-4 md:h-4';
+        
+        // Pseudo-random but deterministic positioning based on seed index
+        // This makes seed animations smooth as they are added one by one
+        const pseudoRandom = (seed) => {
+            let x = Math.sin(seed) * 10000;
+            return x - Math.floor(x);
+        };
+        
+        const top = pseudoRandom(index * 13.37) * 70 + 15;
+        const left = pseudoRandom(index * 42.69) * 70 + 15;
+
+        const styles = {
+          top: `${top}%`,
+          left: `${left}%`,
+          transform: 'translate(-50%, -50%)',
+        };
+
+        return (
+          <div
+            className={`absolute ${sizeClass} ${color} rounded-full border-2 border-white/50 shadow-md transition-all duration-300`}
+            style={styles}
+          ></div>
+        );
+      };
+
+      // From components/Pit.tsx
+      const Pit = ({ seeds, isStore, onClick, isActive, label, isHighlighted }) => {
+        const baseClasses = 'relative flex items-center justify-center transition-all duration-300 shadow-inner-lg';
+        const inactiveClasses = 'bg-yellow-900/50 border-yellow-900/80';
+        const activeClasses = 'bg-yellow-700/60 border-yellow-400 ring-2 ring-yellow-300/70 cursor-pointer hover:bg-yellow-600/70';
+        const highlightClasses = 'ring-4 ring-cyan-300 scale-105 shadow-lg shadow-cyan-300/50';
+        
+        const pitShapeClasses = 'w-14 h-20 md:w-20 md:h-28 rounded-full border-4';
+        const storeShapeClasses = 'w-16 h-40 md:w-24 md:h-64 rounded-3xl border-4';
+
+        const pitClasses = isStore
+          ? `${baseClasses} ${storeShapeClasses} ${inactiveClasses} ${isHighlighted ? highlightClasses : ''}`
+          : `${baseClasses} ${pitShapeClasses} ${isActive ? activeClasses : inactiveClasses} ${isHighlighted ? highlightClasses : ''}`;
+
+        const seedArray = Array.from({ length: seeds }, (_, i) => i);
+
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <div className={pitClasses} onClick={isActive ? onClick : undefined}>
+              <div className="absolute top-1 right-3 text-lg font-bold text-yellow-100/90 opacity-80">{!isStore && seeds > 0 ? seeds : ''}</div>
+              <div className="relative w-full h-full">
+                  {seedArray.map(index => <Seed key={index} index={index} />)}
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-yellow-100/90">{label}</div>
+          </div>
+        );
+      };
+
+      // From components/Board.tsx
+      const Board = ({ board, currentPlayer, onPitClick, isAnimating, highlightedPit }) => {
+        const playerOnePits = board.slice(0, PITS_PER_PLAYER);
+        const playerTwoPits = board.slice(PITS_PER_PLAYER + 1, PLAYER_TWO_STORE_INDEX);
+
+        const activeArrowClasses = "text-yellow-300 animate-pulse";
+        const inactiveArrowClasses = "text-yellow-100/40";
+
+        return (
+          <div className="p-4 md:p-6 bg-yellow-800 rounded-2xl shadow-xl border-4 border-yellow-900/80">
+            <div className="flex justify-between items-center gap-2 md:gap-4">
+              <Pit
+                seeds={board[PLAYER_TWO_STORE_INDEX]}
+                isStore={true}
+                onClick={() => {}}
+                isActive={false}
+                label="プレイヤー2"
+                isHighlighted={highlightedPit === PLAYER_TWO_STORE_INDEX}
+              />
+
+              <div className="flex-grow flex flex-col gap-2 md:gap-3 justify-center">
+                  <div className="grid grid-cols-6 gap-2 md:gap-4">
+                      {playerTwoPits.slice().reverse().map((seeds, i) => {
+                        const pitIndex = PLAYER_TWO_STORE_INDEX - 1 - i;
+                        return (
+                          <div key={pitIndex} className="flex justify-center items-center">
+                            <Pit
+                              seeds={seeds}
+                              isStore={false}
+                              onClick={() => onPitClick(pitIndex)}
+                              isActive={!isAnimating && currentPlayer === Player.Two && seeds > 0}
+                              label=""
+                              isHighlighted={highlightedPit === pitIndex}
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                  
+                  <div className="flex justify-between items-center px-4 md:px-8 h-4">
+                      <span className={`text-3xl font-mono transition-colors duration-300 ${currentPlayer === Player.Two ? activeArrowClasses : inactiveArrowClasses}`}>{'<'.repeat(3)}</span>
+                      <span className={`text-3xl font-mono transition-colors duration-300 ${currentPlayer === Player.One ? activeArrowClasses : inactiveArrowClasses}`}>{'>'.repeat(3)}</span>
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-2 md:gap-4">
+                      {playerOnePits.map((seeds, i) => {
+                        const pitIndex = i;
+                        return (
+                          <div key={pitIndex} className="flex justify-center items-center">
+                            <Pit
+                              seeds={seeds}
+                              isStore={false}
+                              onClick={() => onPitClick(pitIndex)}
+                              isActive={!isAnimating && currentPlayer === Player.One && seeds > 0}
+                              label=""
+                              isHighlighted={highlightedPit === pitIndex}
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+              </div>
+              
+              <Pit
+                  seeds={board[PLAYER_ONE_STORE_INDEX]}
+                  isStore={true}
+                  onClick={() => {}}
+                  isActive={false}
+                  label="プレイヤー1"
+                  isHighlighted={highlightedPit === PLAYER_ONE_STORE_INDEX}
+              />
+
+            </div>
+          </div>
+        );
+      };
+
+      // From App.tsx
+      const { useState } = React;
+
+      const createInitialState = () => {
+        const board = new Array(TOTAL_PITS + 2).fill(0);
+        
+        PLAYER_PIT_INDICES[Player.One].forEach(i => (board[i] = INITIAL_SEEDS_PER_PIT));
+        PLAYER_PIT_INDICES[Player.Two].forEach(i => (board[i] = INITIAL_SEEDS_PER_PIT));
+
+        return {
+          board,
+          currentPlayer: Player.One,
+          isGameOver: false,
+          message: 'プレイヤー1の番です',
+        };
+      };
+      
+      const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+      const App = () => {
+        const [gameState, setGameState] = useState(() => ({
+            ...createInitialState(),
+            isAnimating: false,
+            highlightedPit: -1,
+        }));
+
+        const handlePitClick = async (index) => {
+          if (gameState.isAnimating || gameState.isGameOver) return;
+
+          const { currentPlayer } = gameState;
+          let board = [...gameState.board];
+
+          const isPlayer1Turn = currentPlayer === Player.One;
+          const playerPits = isPlayer1Turn ? PLAYER_PIT_INDICES[Player.One] : PLAYER_PIT_INDICES[Player.Two];
+          
+          if (!playerPits.includes(index) || board[index] === 0) {
+            return;
+          }
+          
+          setGameState(prev => ({ ...prev, isAnimating: true, message: '石をまいています…' }));
+
+          let seedsToSow = board[index];
+          board[index] = 0;
+
+          setGameState(prev => ({ ...prev, board: [...board] }));
+          await delay(400);
+
+          let currentIndex = index;
+          while (seedsToSow > 0) {
+            currentIndex = (currentIndex + 1) % board.length;
+            if (isPlayer1Turn && currentIndex === PLAYER_TWO_STORE_INDEX) continue;
+            if (!isPlayer1Turn && currentIndex === PLAYER_ONE_STORE_INDEX) continue;
+
+            board[currentIndex]++;
+            seedsToSow--;
+
+            setGameState(prev => ({ ...prev, board: [...board], highlightedPit: currentIndex }));
+            await delay(200);
+          }
+
+          setGameState(prev => ({ ...prev, highlightedPit: -1 }));
+          await delay(400);
+
+          let nextPlayer = currentPlayer === Player.One ? Player.Two : Player.One;
+          let message = '';
+          const ownStoreIndex = PLAYER_STORE_INDICES[currentPlayer];
+          
+          if (currentIndex === ownStoreIndex) {
+            nextPlayer = currentPlayer;
+            message = `プレイヤー${currentPlayer + 1}がもう一度！`;
+          } 
+          else {
+              const isOwnSide = (isPlayer1Turn && currentIndex < PLAYER_ONE_STORE_INDEX) || (!isPlayer1Turn && currentIndex > PLAYER_ONE_STORE_INDEX && currentIndex < PLAYER_TWO_STORE_INDEX);
+              if (isOwnSide && board[currentIndex] === 1) {
+                  const oppositeIndex = TOTAL_PITS - currentIndex;
+                  if (board[oppositeIndex] > 0) {
+                      const capturedSeeds = board[oppositeIndex] + 1;
+                      board[oppositeIndex] = 0;
+                      board[currentIndex] = 0;
+                      board[ownStoreIndex] += capturedSeeds;
+                      message = `プレイヤー${currentPlayer + 1}がキャプチャー！`;
+
+                      setGameState(prev => ({ ...prev, board: [...board], message }));
+                      await delay(500);
+                  }
+              }
+          }
+
+          const playerOnePitsEmpty = PLAYER_PIT_INDICES[Player.One].every(i => board[i] === 0);
+          const playerTwoPitsEmpty = PLAYER_PIT_INDICES[Player.Two].every(i => board[i] === 0);
+          const isGameOver = playerOnePitsEmpty || playerTwoPitsEmpty;
+
+          if (isGameOver) {
+              PLAYER_PIT_INDICES[Player.One].forEach(i => {
+                board[PLAYER_ONE_STORE_INDEX] += board[i];
+                board[i] = 0;
+              });
+              PLAYER_PIT_INDICES[Player.Two].forEach(i => {
+                board[PLAYER_TWO_STORE_INDEX] += board[i];
+                board[i] = 0;
+              });
+            
+            setGameState(prev => ({ ...prev, board: [...board] }));
+            await delay(500);
+
+            const p1Score = board[PLAYER_ONE_STORE_INDEX];
+            const p2Score = board[PLAYER_TWO_STORE_INDEX];
+
+            if (p1Score > p2Score) {
+              message = `ゲーム終了！ ${p1Score}対${p2Score}でプレイヤー1の勝利！`;
+            } else if (p2Score > p1Score) {
+              message = `ゲーム終了！ ${p2Score}対${p1Score}でプレイヤー2の勝利！`;
+            } else {
+              message = `ゲーム終了！ ${p1Score}対${p2Score}で引き分け！`;
+            }
+          } else if (message === '') {
+            message = `プレイヤー${nextPlayer + 1}の番です`;
+          }
+
+          setGameState({
+            board: board,
+            currentPlayer: nextPlayer,
+            isGameOver: isGameOver,
+            message,
+            isAnimating: false,
+            highlightedPit: -1,
+          });
+        };
+
+        const resetGame = () => {
+          setGameState({
+            ...createInitialState(),
+            isAnimating: false,
+            highlightedPit: -1,
+          });
+        };
+
+        return (
+          <div className="min-h-screen bg-emerald-800 text-stone-100 flex flex-col items-center justify-center p-4 font-sans">
+            <div className="w-full max-w-5xl mx-auto flex flex-col items-center gap-6">
+              <header className="text-center">
+                  <h1 className="text-4xl md:text-6xl font-bold text-yellow-100 tracking-wider" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>マンカラ</h1>
+                  <p className="text-yellow-200/80 mt-2">ReactとTailwind CSSで作成</p>
+              </header>
+              
+              <main className="w-full flex flex-col items-center gap-4">
+                  <div className="w-full bg-black/20 p-4 rounded-xl shadow-md text-center h-20 flex items-center justify-center">
+                      <p className="text-xl md:text-2xl font-semibold text-white">{gameState.message}</p>
+                  </div>
+
+                  <Board
+                    board={gameState.board}
+                    currentPlayer={gameState.currentPlayer}
+                    onPitClick={handlePitClick}
+                    isAnimating={gameState.isAnimating}
+                    highlightedPit={gameState.highlightedPit}
+                  />
+
+                  <div className="mt-4">
+                      <button
+                          onClick={resetGame}
+                          className="px-8 py-3 bg-amber-600 text-white font-bold rounded-lg shadow-lg hover:bg-amber-700 active:bg-amber-800 transition-all duration-200 transform hover:scale-105"
+                      >
+                          新しいゲーム
+                      </button>
+                  </div>
+              </main>
+            </div>
+          </div>
+        );
+      };
+
+      // From index.tsx
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element to mount to");
+      }
+
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    </script>
+  </body>
+</html>
