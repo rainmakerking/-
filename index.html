@@ -264,47 +264,42 @@
                       board[ownStoreIndex] += capturedSeeds;
                       message = `プレイヤー${currentPlayer + 1}がキャプチャー！`;
 
-                      setGameState(prev => ({ ...prev, board: [...board], message }));
-                      await delay(500);
+                      setGameState(prev => ({ ...prev, board: [...board], message, highlightedPit: ownStoreIndex }));
+                      await delay(800);
                   }
               }
           }
 
           const playerOnePitsEmpty = PLAYER_PIT_INDICES[Player.One].every(i => board[i] === 0);
           const playerTwoPitsEmpty = PLAYER_PIT_INDICES[Player.Two].every(i => board[i] === 0);
-          const isGameOver = playerOnePitsEmpty || playerTwoPitsEmpty;
 
-          if (isGameOver) {
-              PLAYER_PIT_INDICES[Player.One].forEach(i => {
-                board[PLAYER_ONE_STORE_INDEX] += board[i];
-                board[i] = 0;
-              });
-              PLAYER_PIT_INDICES[Player.Two].forEach(i => {
-                board[PLAYER_TWO_STORE_INDEX] += board[i];
-                board[i] = 0;
-              });
-            
-            setGameState(prev => ({ ...prev, board: [...board] }));
-            await delay(500);
-
-            const p1Score = board[PLAYER_ONE_STORE_INDEX];
-            const p2Score = board[PLAYER_TWO_STORE_INDEX];
-
-            if (p1Score > p2Score) {
-              message = `ゲーム終了！ ${p1Score}対${p2Score}でプレイヤー1の勝利！`;
-            } else if (p2Score > p1Score) {
-              message = `ゲーム終了！ ${p2Score}対${p1Score}でプレイヤー2の勝利！`;
-            } else {
-              message = `ゲーム終了！ ${p1Score}対${p2Score}で引き分け！`;
+          if (playerOnePitsEmpty || playerTwoPitsEmpty) {
+            let finalMessage = '';
+            if (playerOnePitsEmpty) {
+              finalMessage = 'ゲーム終了！ プレイヤー1が自分の石を全て無くして勝利しました！';
+            } else if (playerTwoPitsEmpty) {
+              finalMessage = 'ゲーム終了！ プレイヤー2が自分の石を全て無くして勝利しました！';
             }
-          } else if (message === '') {
+
+            setGameState(prev => ({
+              ...prev,
+              board: board,
+              isGameOver: true,
+              message: finalMessage,
+              isAnimating: false,
+              highlightedPit: -1,
+            }));
+            return;
+          }
+          
+          if (message === '') {
             message = `プレイヤー${nextPlayer + 1}の番です`;
           }
 
           setGameState({
             board: board,
             currentPlayer: nextPlayer,
-            isGameOver: isGameOver,
+            isGameOver: false,
             message,
             isAnimating: false,
             highlightedPit: -1,
