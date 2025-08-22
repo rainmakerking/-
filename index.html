@@ -207,6 +207,7 @@
             isAnimating: false,
             highlightedPit: -1,
         }));
+        const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
         const handlePitClick = async (index) => {
           if (gameState.isAnimating || gameState.isGameOver) return;
@@ -242,9 +243,6 @@
             await delay(200);
           }
 
-          setGameState(prev => ({ ...prev, highlightedPit: -1 }));
-          await delay(400);
-
           let nextPlayer = currentPlayer === Player.One ? Player.Two : Player.One;
           let message = '';
           const ownStoreIndex = PLAYER_STORE_INDICES[currentPlayer];
@@ -252,6 +250,7 @@
           if (currentIndex === ownStoreIndex) {
             nextPlayer = currentPlayer;
             message = `プレイヤー${currentPlayer + 1}がもう一度！`;
+            await delay(800);
           } 
           else {
               const isOwnSide = (isPlayer1Turn && currentIndex < PLAYER_ONE_STORE_INDEX) || (!isPlayer1Turn && currentIndex > PLAYER_ONE_STORE_INDEX && currentIndex < PLAYER_TWO_STORE_INDEX);
@@ -269,6 +268,9 @@
                   }
               }
           }
+
+          setGameState(prev => ({ ...prev, highlightedPit: -1, message: message || prev.message }));
+          await delay(400);
 
           const playerOnePitsEmpty = PLAYER_PIT_INDICES[Player.One].every(i => board[i] === 0);
           const playerTwoPitsEmpty = PLAYER_PIT_INDICES[Player.Two].every(i => board[i] === 0);
@@ -314,8 +316,65 @@
           });
         };
 
+        const RulesModal = ({ onClose }) => (
+          <div 
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rules-title"
+          >
+            <div 
+              className="bg-yellow-900/95 border-2 border-yellow-700 rounded-2xl shadow-2xl p-6 md:p-8 max-w-2xl w-full text-yellow-100 relative backdrop-blur-sm"
+              onClick={e => e.stopPropagation()}
+            >
+              <button 
+                onClick={onClose} 
+                className="absolute top-4 right-4 text-3xl font-bold text-yellow-300 hover:text-yellow-100 transition-colors"
+                aria-label="閉じる"
+              >
+                &times;
+              </button>
+              <h2 id="rules-title" className="text-2xl md:text-3xl font-bold text-center mb-6 text-yellow-200">遊び方</h2>
+              <div className="space-y-4 text-base md:text-lg">
+                <div>
+                  <h3 className="font-bold text-yellow-300 mb-1">【ゲームの目的】</h3>
+                  <p>自分のピット（小さい穴）にある石を、相手より先にすべて無くしたプレイヤーが勝利です。</p>
+                </div>
+                <div>
+                  <h3 className="font-bold text-yellow-300 mb-1">【ゲームの進め方】</h3>
+                  <ol className="list-decimal list-inside space-y-2">
+                    <li>自分の番になったら、自分のピット（小さい穴）のどれか一つを選び、その中の石をすべて手に取ります。</li>
+                    <li>手に取った石を、反時計回りに、隣の穴から1つずつ入れていきます。自分のストア（大きい穴）にも石を入れますが、相手のストアは飛ばします。</li>
+                  </ol>
+                </div>
+                <div>
+                  <h3 className="font-bold text-yellow-300 mb-1">【特別なルール】</h3>
+                  <ul className="list-disc list-inside space-y-2">
+                    <li><span className="font-semibold">もう一度自分の番：</span> 最後の石が自分のストアに入って終わった場合、もう一度自分の番になります。</li>
+                    <li><span className="font-semibold">キャプチャー：</span> 最後の石が、自分の側にある空のピットに入って終わった場合、その石と、向かい側にある相手のピットの石をすべて獲得できます。獲得した石は自分のストアに入ります。</li>
+                  </ul>
+                </div>
+                 <div>
+                  <h3 className="font-bold text-yellow-300 mb-1">【ゲームの終了】</h3>
+                  <p>どちらかのプレイヤーのピットがすべて空になった時点でゲーム終了です。ピットを空にしたプレイヤーが勝利となります。</p>
+                </div>
+              </div>
+               <div className="text-center mt-8">
+                  <button
+                      onClick={onClose}
+                      className="px-8 py-3 bg-amber-600 text-white font-bold rounded-lg shadow-lg hover:bg-amber-700 active:bg-amber-800 transition-all duration-200 transform hover:scale-105"
+                  >
+                      閉じる
+                  </button>
+              </div>
+            </div>
+          </div>
+        );
+
         return (
           <div className="min-h-screen bg-emerald-800 text-stone-100 flex flex-col items-center justify-center p-4 font-sans">
+            {isRulesModalOpen && <RulesModal onClose={() => setIsRulesModalOpen(false)} />}
             <div className="w-full max-w-5xl mx-auto flex flex-col items-center gap-6">
               <header className="text-center">
                   <h1 className="text-4xl md:text-6xl font-bold text-yellow-100 tracking-wider" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>マンカラ</h1>
@@ -335,12 +394,19 @@
                     highlightedPit={gameState.highlightedPit}
                   />
 
-                  <div className="mt-4">
+                  <div className="mt-4 flex flex-wrap justify-center gap-4">
                       <button
                           onClick={resetGame}
                           className="px-8 py-3 bg-amber-600 text-white font-bold rounded-lg shadow-lg hover:bg-amber-700 active:bg-amber-800 transition-all duration-200 transform hover:scale-105"
                       >
                           新しいゲーム
+                      </button>
+                      <button
+                          onClick={() => setIsRulesModalOpen(true)}
+                          className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-lg hover:bg-sky-700 active:bg-sky-800 transition-all duration-200 transform hover:scale-105"
+                          aria-haspopup="dialog"
+                      >
+                          遊び方
                       </button>
                   </div>
               </main>
