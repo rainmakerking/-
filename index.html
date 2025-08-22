@@ -91,6 +91,8 @@
           : `${baseClasses} ${pitShapeClasses} ${isActive ? activeClasses : inactiveClasses} ${isHighlighted ? highlightClasses : ''}`;
 
         const seedArray = Array.from({ length: seeds }, (_, i) => i);
+        
+        const displaySeeds = isStore ? seeds : (seeds > 0 ? seeds : '');
 
         return (
           <div className="flex flex-col items-center gap-2">
@@ -100,7 +102,7 @@
                   {seedArray.map(index => <Seed key={index} index={index} />)}
               </div>
             </div>
-            <div className="text-sm font-semibold text-yellow-100/90">{label}</div>
+            <div className="text-sm font-semibold text-yellow-100/90">{label} {isStore ? `(${displaySeeds})` : ''}</div>
           </div>
         );
       };
@@ -276,12 +278,23 @@
           const playerTwoPitsEmpty = PLAYER_PIT_INDICES[Player.Two].every(i => board[i] === 0);
 
           if (playerOnePitsEmpty || playerTwoPitsEmpty) {
-            let finalMessage = '';
-            if (playerOnePitsEmpty) {
-              finalMessage = 'ゲーム終了！ プレイヤー1が自分の石を全て無くして勝利しました！';
-            } else if (playerTwoPitsEmpty) {
-              finalMessage = 'ゲーム終了！ プレイヤー2が自分の石を全て無くして勝利しました！';
+            let finalMessage = "ゲーム終了！";
+            // The winner is determined by who empties their pits first.
+            // Clear the remaining stones for the final board state.
+            if(playerOnePitsEmpty) {
+                const remainingP2Seeds = PLAYER_PIT_INDICES[Player.Two].reduce((sum, i) => sum + board[i], 0);
+                board[PLAYER_TWO_STORE_INDEX] += remainingP2Seeds;
+                PLAYER_PIT_INDICES[Player.Two].forEach(i => board[i] = 0);
+                finalMessage += " プレイヤー1の勝利です！";
+            } else { // playerTwoPitsEmpty
+                const remainingP1Seeds = PLAYER_PIT_INDICES[Player.One].reduce((sum, i) => sum + board[i], 0);
+                board[PLAYER_ONE_STORE_INDEX] += remainingP1Seeds;
+                PLAYER_PIT_INDICES[Player.One].forEach(i => board[i] = 0);
+                finalMessage += " プレイヤー2の勝利です！";
             }
+            
+            setGameState(prev => ({ ...prev, board: [...board], isAnimating: true, message: 'ゲーム終了処理中…' }));
+            await delay(1000);
 
             setGameState(prev => ({
               ...prev,
@@ -345,7 +358,7 @@
                   <h3 className="font-bold text-yellow-300 mb-1">【ゲームの進め方】</h3>
                   <ol className="list-decimal list-inside space-y-2">
                     <li>自分の番になったら、自分のピット（小さい穴）のどれか一つを選び、その中の石をすべて手に取ります。</li>
-                    <li>手に取った石を、反時計回りに、隣の穴から1つずつ入れていきます。自分のストア（大きい穴）にも石を入れますが、相手のストアは飛ばします。</li>
+                    <li>手に取った石を、反時計回りに、隣の穴から1つずつ入れていきます。自分のストアにも石を入れますが、相手のストアは飛ばします。</li>
                   </ol>
                 </div>
                 <div>
@@ -357,7 +370,7 @@
                 </div>
                  <div>
                   <h3 className="font-bold text-yellow-300 mb-1">【ゲームの終了】</h3>
-                  <p>どちらかのプレイヤーのピットがすべて空になった時点でゲーム終了です。ピットを空にしたプレイヤーが勝利となります。</p>
+                  <p>どちらかのプレイヤーのピット（小さい穴）がすべて空になった時点でゲーム終了となります。自分のピットを先に空にしたプレイヤーが勝者です。</p>
                 </div>
               </div>
                <div className="text-center mt-8">
